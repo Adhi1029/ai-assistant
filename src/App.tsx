@@ -3,10 +3,13 @@ import axios from "axios";
 import Groq from "groq-sdk";
 import "./App.css";
 
+// @ts-ignore
 import Strands from "./components/Strands";
+// @ts-ignore
 import FloatingLines from "./components/FloatingLines";
+// @ts-ignore
 import ElasticSlider from "./components/ElasticSlider";
-import ChatInterface, { Message } from "./components/ChatInterface";
+import ChatInterface, { type Message } from "./components/ChatInterface";
 import MultimodalInput from "./components/MultimodalInput";
 import SettingsModal from "./components/SettingsModal";
 import { Settings as SettingsIcon } from "lucide-react";
@@ -117,8 +120,8 @@ function App() {
           role: "system",
           content: "You are a highly capable AI assistant. Answer intelligently, concisely, and with accurate information. Format output in Markdown."
         },
-        ...messages.map(m => ({ role: m.role === 'bot' ? 'assistant' : 'user' as const, content: m.text })),
-        { role: "user", content: inputText }
+        ...messages.map(m => ({ role: (m.role === 'bot' ? 'assistant' : 'user') as "assistant" | "user", content: m.text })),
+        { role: "user" as const, content: inputText }
       ],
       model: "openai/gpt-oss-20b",
     });
