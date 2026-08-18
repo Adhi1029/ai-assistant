@@ -4,6 +4,8 @@ import Groq from "groq-sdk";
 import "./App.css";
 
 import Strands from "./components/Strands";
+import FloatingLines from "./components/FloatingLines";
+import ElasticSlider from "./components/ElasticSlider";
 import ChatInterface, { Message } from "./components/ChatInterface";
 import MultimodalInput from "./components/MultimodalInput";
 import SettingsModal from "./components/SettingsModal";
@@ -24,6 +26,7 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [voiceURI, setVoiceURI] = useState("");
+  const [volume, setVolume] = useState(50);
 
   useEffect(() => {
     // Load voices
@@ -83,7 +86,14 @@ function App() {
       
       // If there is an image, we MUST use Gemini because Groq's default models don't support vision directly yet
       if (imageBase64) {
-        botReply = await sendToGeminiVision(text, imageBase64);
+        try {
+          botReply = await sendToGeminiVision(text, imageBase64);
+        } catch (geminiError) {
+          console.warn("Gemini API failed. Falling back to Groq.", geminiError);
+          const fallbackText = text ? text : "The user tried to upload an image, but my image processing failed. Apologize and ask them to describe the image instead.";
+          botReply = await sendToGroq(fallbackText);
+          botReply = "*(Note: My image sensors are currently down due to an API issue, so I could only read your text!)*\n\n" + botReply;
+        }
       } else {
         // Use Groq for text
         botReply = await sendToGroq(text);
@@ -91,9 +101,10 @@ function App() {
 
       setMessages((prev) => [...prev, { role: "bot", text: botReply }]);
       speak(botReply);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      setMessages((prev) => [...prev, { role: "bot", text: "Sorry, I encountered an error." }]);
+      const errMsg = error?.message || error?.response?.data?.error?.message || "Sorry, I encountered an unknown error.";
+      setMessages((prev) => [...prev, { role: "bot", text: `Error: ${errMsg}` }]);
     } finally {
       setLoading(false);
     }
@@ -109,7 +120,7 @@ function App() {
         ...messages.map(m => ({ role: m.role === 'bot' ? 'assistant' : 'user' as const, content: m.text })),
         { role: "user", content: inputText }
       ],
-      model: "llama3-8b-8192",
+      model: "openai/gpt-oss-20b",
     });
     return chatCompletion.choices[0]?.message?.content || "";
   };
@@ -146,6 +157,7 @@ function App() {
     // Remove markdown for speech
     const cleanText = text.replace(/[*_#\[\]]/g, '');
     const speech = new SpeechSynthesisUtterance(cleanText);
+    speech.volume = volume / 100;
     
     if (voiceURI) {
       const selectedVoice = voices.find(v => v.voiceURI === voiceURI);
@@ -176,22 +188,49 @@ function App() {
         />
       </div>
 
+      {/* Floating Lines permanently in the background */}
+      <div className="strands-bg visible">
+        <FloatingLines 
+          enabledWaves={["top","middle","bottom"]}
+          lineCount={8}
+          lineDistance={8}
+          bendRadius={8}
+          bendStrength={-2}
+          interactive
+          parallax={true}
+          animationSpeed={1}
+        />
+      </div>
+
       <header className="app-header glass-panel">
         <h1>Nexus AI</h1>
-        <button className="icon-btn" onClick={() => setSettingsOpen(true)}>
-          <SettingsIcon size={24} />
-        </button>
+        <div className="header-controls">
+          <div className="header-volume">
+            <ElasticSlider
+              defaultValue={50}
+              maxValue={100}
+              isStepped={false}
+              onChange={(val: number) => setVolume(val)}
+            />
+          </div>
+          <button className="icon-btn settings-btn" onClick={() => setSettingsOpen(true)}>
+            <SettingsIcon size={24} />
+          </button>
+        </div>
       </header>
 
       <main className="main-content">
         <ChatInterface messages={messages} />
+      </main>
+
+      <div className="dock-container">
         <MultimodalInput
           onSendMessage={handleSendMessage}
           isListening={listening}
           toggleListen={startListening}
           isLoading={loading}
         />
-      </main>
+      </div>
 
       <SettingsModal 
         isOpen={settingsOpen}

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { motion } from "motion/react";
 
 export interface Message {
   role: "user" | "bot";
@@ -15,22 +16,38 @@ export default function ChatInterface({ messages }: ChatInterfaceProps) {
   const chatRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    chatRef.current?.scrollTo({
-      top: chatRef.current.scrollHeight,
-      behavior: "smooth",
-    });
+    // We scroll the document body or main content, but the chatRef itself doesn't scroll anymore
+    // Let's scroll the window or closest scrollable parent
+    const scrollContainer = chatRef.current?.parentElement;
+    if (scrollContainer) {
+      scrollContainer.scrollTo({
+        top: scrollContainer.scrollHeight,
+        behavior: "smooth",
+      });
+    }
   }, [messages]);
 
   return (
-    <div className="chat-interface glass-panel" ref={chatRef}>
+    <div className="chat-interface" ref={chatRef}>
       {messages.length === 0 ? (
-        <div className="empty-state">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: 'spring', bounce: 0, duration: 0.4 }}
+          className="empty-state"
+        >
           <h2>How can I help you today?</h2>
           <p>I can search the web, analyze images, and remember our context.</p>
-        </div>
+        </motion.div>
       ) : (
         messages.map((msg, i) => (
-          <div key={i} className={`message-row ${msg.role}`}>
+          <motion.div 
+            key={i} 
+            className={`message-row ${msg.role}`}
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ type: 'spring', bounce: 0, duration: 0.4 }}
+          >
             <div className={`message-bubble ${msg.role}`}>
               {msg.image && (
                 <img src={msg.image} alt="User attachment" className="msg-img" />
@@ -49,7 +66,7 @@ export default function ChatInterface({ messages }: ChatInterfaceProps) {
                 </div>
               )}
             </div>
-          </div>
+          </motion.div>
         ))
       )}
     </div>
